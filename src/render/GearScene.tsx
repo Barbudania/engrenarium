@@ -345,7 +345,7 @@ function Gear3D({
   });
 
   const isVisible = opacity > 0.001;
-
+//.
   return (
     <group position={pos} rotation={[0, 0, phase + PHASE_ORIENT]} visible={isVisible}>
       <mesh ref={meshRef} scale={[sXY, sXY, thickness]}>
