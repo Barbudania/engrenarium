@@ -11,6 +11,7 @@ export default function App() {
   const [resetSignal, setResetSignal] = useState(0);
   const [lastLoadedExample, setLastLoadedExample] = useState<"EX1" | "EX2" | "EX3" | "EX4" | null>(null);
   const logoUrl = `${import.meta.env.BASE_URL}logo-engrenarium.png`;
+  const mobileLeftOffset = isMobile ? 32 : 0;
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -91,7 +92,7 @@ export default function App() {
   }
 `}</style>
 
-      <div className="wrap">
+      <div className="wrap" style={mobileLeftOffset ? { paddingLeft: mobileLeftOffset } : undefined}>
         <div
           style={{
             display: "flex",
