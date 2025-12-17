@@ -64,7 +64,7 @@ appTitle: "Engrenarium",
       "Cadeia no estágio: Solar ↔ Planeta1 (externo), Planeta1 ↔ Planeta2 (externo), …, Planeta_k ↔ Anelar (interno se houver).",
     couplingHint:
       "Use para acoplar estágios (ex.: planeta do 1º coaxial ao planeta do 2º).",
-    sameVarNotAllowed: "Não é permitido usar a mesma variável nas duas linhas.",
+    sameVarNotAllowed: "Não é possível usar a mesma variável nas duas linhas.",
     renderPlaceholder: "(renderização das engrenagens virá aqui)",
 
     // Resultados
@@ -149,7 +149,7 @@ appTitle: "Engrenarium",
       "Stage chain: Sun ↔ Planet1 (external), Planet1 ↔ Planet2 (external), …, Planet_k ↔ Ring (internal if present).",
     couplingHint:
       "Use to couple stages (e.g., planet of stage 1 coaxial to planet of stage 2).",
-    sameVarNotAllowed: "It is not allowed to use the same variable on both lines.",
+    sameVarNotAllowed: "It is not possible to use the same variable on both lines.",
     renderPlaceholder: "(gears rendering will appear here)",
 
     // Results
