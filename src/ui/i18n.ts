@@ -4,7 +4,7 @@ export const strings = {
   pt: {
 
 appTitle: "Engrenarium",
-    appSubtitle: "Coloque as geometrias e duas velocidades conhecidas. Em “Relação de Velocidades” escolha Entrada e Saída.",
+    appSubtitle: "Coloque as geometrias e velocidades conhecidas. Em “Relação de Velocidades” escolha Entrada e Saída.",
 
     // Seções
     geometry: "Geometria (dentes)",
@@ -89,7 +89,7 @@ appTitle: "Engrenarium",
   en: {
 
 appTitle: "Engrenarium",
-    appSubtitle: "Enter the geometries and two known speeds. In “Speed ratio” choose Input and Output.",
+    appSubtitle: "Enter the geometries and known speeds. In “Speed ratio” choose Input and Output.",
 
     // Sections
     geometry: "Geometry (teeth)",
