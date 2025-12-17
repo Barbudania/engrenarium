@@ -172,6 +172,7 @@ export function StageEditor({
   const resultsDrawerClosedY = resultsDrawerHeight;
   const resultsTabWidth = 90;
   const resultsTabHeight = drawerTabWidth;
+  const resultsHandleAreaHeight = 44;
   const [resultsDrawerY, setResultsDrawerY] = useState(resultsDrawerClosedY);
   const resultsDrawerYRef = useRef(resultsDrawerClosedY);
   const [resultsDrawerDragging, setResultsDrawerDragging] = useState(false);
@@ -1670,11 +1671,11 @@ const resultMemo = useMemo(() => {
           left: mobileResultsInset.left,
           right: mobileResultsInset.right,
           bottom: 0,
-          height: resultsDrawerHeight,
+          height: resultsDrawerHeight + resultsHandleAreaHeight,
           transform: `translateY(${resultsDrawerY}px)`,
           transition: resultsDrawerDragging ? "none" : "transform 180ms ease",
           zIndex: 80,
-          overflow: "visible",
+          overflow: "hidden",
           pointerEvents: "auto",
         }}
       >
@@ -1689,43 +1690,64 @@ const resultMemo = useMemo(() => {
             boxShadow: "0 -10px 30px rgba(0,0,0,0.45)",
           }}
         >
-          <div style={{ padding: "12px 14px 14px 14px", overflow: "auto", minHeight: 0, flex: "1 1 auto" }}>
+          <div
+            style={{
+              height: resultsHandleAreaHeight,
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flex: "0 0 auto",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                left: 14,
+                top: 0,
+                bottom: 0,
+                display: "flex",
+                alignItems: "center",
+                fontWeight: 700,
+                pointerEvents: "none",
+              }}
+            >
+              {t("results")}
+            </div>
+            <div
+              onPointerDown={startResultsDrag}
+              onPointerMove={moveResultsDrag}
+              onPointerUp={endResultsDrag}
+              onPointerCancel={endResultsDrag}
+              onClick={() => {
+                const nextCollapsed = !resultsCollapsedRef.current;
+                setResultsCollapsed(nextCollapsed);
+                setResultsDrawerYClamped(nextCollapsed ? resultsDrawerClosedY : 0);
+              }}
+              title={resultsCollapsed ? "Arraste para mostrar" : "Arraste para esconder"}
+              style={{
+                width: resultsTabWidth,
+                height: resultsTabHeight,
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                background: "var(--panel-bg)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "grab",
+                userSelect: "none",
+                touchAction: "none",
+                color: "var(--text)",
+                fontWeight: 700,
+              }}
+            >
+              ≡
+            </div>
+          </div>
+
+          <div style={{ padding: "0 14px 14px 14px", overflow: "auto", minHeight: 0, flex: "1 1 auto" }}>
             {renderResultsBody()}
           </div>
-        </div>
-
-        <div
-          onPointerDown={startResultsDrag}
-          onPointerMove={moveResultsDrag}
-          onPointerUp={endResultsDrag}
-          onPointerCancel={endResultsDrag}
-          onClick={() => {
-            const nextCollapsed = !resultsCollapsedRef.current;
-            setResultsCollapsed(nextCollapsed);
-            setResultsDrawerYClamped(nextCollapsed ? resultsDrawerClosedY : 0);
-          }}
-          title={resultsCollapsed ? "Arraste para mostrar" : "Arraste para esconder"}
-          style={{
-            position: "absolute",
-            top: -resultsTabHeight,
-            left: "50%",
-            width: resultsTabWidth,
-            height: resultsTabHeight,
-            transform: "translateX(-50%)",
-            borderRadius: "10px 10px 0 0",
-            border: "1px solid var(--border)",
-            background: "var(--panel-bg)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "grab",
-            userSelect: "none",
-            touchAction: "none",
-            color: "var(--text)",
-            fontWeight: 700,
-          }}
-        >
-          ≡
         </div>
       </div>
     )}
