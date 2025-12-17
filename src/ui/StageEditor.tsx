@@ -135,6 +135,8 @@ export function StageEditor({
   const [cameraZoomMultiplier, setCameraZoomMultiplier] = useState(1);
   const [cameraResetToken, setCameraResetToken] = useState(0);
   const [cameraZoomFitToken, setCameraZoomFitToken] = useState(0);
+  const [resultsCollapsed, setResultsCollapsed] = useState(() => isMobile);
+  const resultsCollapsedRef = useRef(resultsCollapsed);
   const DEFAULT_CAMERA_ZOOM = 1;
   const [gearModule, setGearModule] = useState(1);
   const [gearPressureDeg, setGearPressureDeg] = useState(20);
@@ -152,6 +154,7 @@ export function StageEditor({
 
   // --- Mobile: painel esquerdo em formato "drawer" (arrastar para abrir/fechar)
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 0 : window.innerWidth));
+  const [viewportHeight, setViewportHeight] = useState(() => (typeof window === "undefined" ? 0 : window.innerHeight));
   const [mobileLeftOpen, setMobileLeftOpen] = useState(false);
   const drawerTabWidth = 22;
   const drawerWidth = isMobile ? Math.min(420, Math.max(280, Math.round(viewportWidth * 0.92))) : 420;
@@ -160,6 +163,19 @@ export function StageEditor({
   const drawerXRef = useRef(drawerClosedX);
   const [drawerDragging, setDrawerDragging] = useState(false);
   const drawerDragRef = useRef<null | { pointerId: number; startX: number; startDrawerX: number }>(null);
+  const rightColRef = useRef<HTMLDivElement | null>(null);
+  const [mobileResultsInset, setMobileResultsInset] = useState<{ left: number; right: number }>(() => ({
+    left: drawerTabWidth + 6,
+    right: 0,
+  }));
+  const resultsDrawerHeight = isMobile ? Math.min(420, Math.max(220, Math.round(viewportHeight * 0.55))) : 0;
+  const resultsDrawerClosedY = resultsDrawerHeight;
+  const resultsTabWidth = 90;
+  const resultsTabHeight = drawerTabWidth;
+  const [resultsDrawerY, setResultsDrawerY] = useState(resultsDrawerClosedY);
+  const resultsDrawerYRef = useRef(resultsDrawerClosedY);
+  const [resultsDrawerDragging, setResultsDrawerDragging] = useState(false);
+  const resultsDragRef = useRef<null | { pointerId: number; startY: number; startDrawerY: number }>(null);
 
   const clampDrawerX = useCallback((x: number) => Math.max(drawerClosedX, Math.min(0, x)), [drawerClosedX]);
 
@@ -172,11 +188,42 @@ export function StageEditor({
     [clampDrawerX]
   );
 
+  const clampResultsDrawerY = useCallback(
+    (y: number) => Math.max(0, Math.min(resultsDrawerClosedY, y)),
+    [resultsDrawerClosedY]
+  );
+
+  const setResultsDrawerYClamped = useCallback(
+    (y: number) => {
+      const clamped = clampResultsDrawerY(y);
+      resultsDrawerYRef.current = clamped;
+      setResultsDrawerY(clamped);
+    },
+    [clampResultsDrawerY]
+  );
+
   useEffect(() => {
-    const onResize = () => setViewportWidth(window.innerWidth);
+    const onResize = () => {
+      setViewportWidth(window.innerWidth);
+      setViewportHeight(window.innerHeight);
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!isMobile) return;
+    const el = rightColRef.current;
+    if (!el || typeof window === "undefined") return;
+
+    const rect = el.getBoundingClientRect();
+    const styles = window.getComputedStyle(el);
+    const padLeft = Number.parseFloat(styles.paddingLeft || "0") || 0;
+    const padRight = Number.parseFloat(styles.paddingRight || "0") || 0;
+    const left = rect.left + padLeft;
+    const right = Math.max(0, window.innerWidth - rect.right + padRight);
+    setMobileResultsInset({ left, right });
+  }, [isMobile, viewportWidth]);
 
   useLayoutEffect(() => {
     if (!panelExample) {
@@ -205,12 +252,25 @@ export function StageEditor({
 
   useEffect(() => {
     if (!isMobile) return;
+    setResultsDrawerYClamped(resultsCollapsed ? resultsDrawerClosedY : 0);
+  }, [isMobile, resultsCollapsed, resultsDrawerClosedY, setResultsDrawerYClamped]);
+
+  useEffect(() => {
+    setResultsCollapsed(isMobile);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile) return;
     const prev = document.body.style.overflow;
     if (mobileLeftOpen) document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
   }, [isMobile, mobileLeftOpen]);
+
+  useEffect(() => {
+    resultsCollapsedRef.current = resultsCollapsed;
+  }, [resultsCollapsed]);
 
   const startDrawerDrag = useCallback(
     (e: React.PointerEvent) => {
@@ -250,6 +310,46 @@ export function StageEditor({
       }
     },
     [isMobile, drawerClosedX, setDrawerXClamped]
+  );
+
+  const startResultsDrag = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isMobile) return;
+      resultsDragRef.current = { pointerId: e.pointerId, startY: e.clientY, startDrawerY: resultsDrawerYRef.current };
+      setResultsDrawerDragging(true);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [isMobile]
+  );
+
+  const moveResultsDrag = useCallback(
+    (e: React.PointerEvent) => {
+      const drag = resultsDragRef.current;
+      if (!isMobile || !drag || drag.pointerId !== e.pointerId) return;
+      const dy = e.clientY - drag.startY;
+      setResultsDrawerYClamped(drag.startDrawerY + dy);
+    },
+    [isMobile, setResultsDrawerYClamped]
+  );
+
+  const endResultsDrag = useCallback(
+    (e: React.PointerEvent) => {
+      const drag = resultsDragRef.current;
+      if (!isMobile || !drag || drag.pointerId !== e.pointerId) return;
+      resultsDragRef.current = null;
+      setResultsDrawerDragging(false);
+      const currentY = resultsDrawerYRef.current;
+      const openThreshold = resultsDrawerClosedY / 2; // metade do caminho
+      const shouldOpen = currentY < openThreshold;
+      setResultsCollapsed(!shouldOpen);
+      setResultsDrawerYClamped(shouldOpen ? 0 : resultsDrawerClosedY);
+      try {
+        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch {
+        // noop
+      }
+    },
+    [isMobile, resultsDrawerClosedY, setResultsDrawerYClamped]
   );
 
   const resetCameraDefaults = useCallback(() => {
@@ -383,6 +483,173 @@ const topologyKey = useMemo(() => {
     omegaOptions.forEach(o => m.set(o.id, o.label));
     return m;
   }, [omegaOptions]);
+
+  const renderResultsBody = () => (
+    <>
+      {Object.keys(montagem).length > 0 && (
+        <div
+          style={{
+            ...small,
+            color: hasImpossible ? "#ff6b6b" : "var(--muted-foreground)",
+            textAlign: "right",
+            marginTop: 2,
+            minWidth: 0,
+            flex: "1 1 auto",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {Object.entries(montagem).map(([id, st]) => (
+            <div key={id}>
+              <b>{t("planetary")} {id}:</b>{" "}
+              {st.tipo === "aberta" ? t("stageOpen")
+               : st.tipo === "reto" ? t("armStraight")
+               : st.tipo === "curvo" ? t("armStepped")
+               : (lang === "en" ? "Carrier" : "Braço")}
+              {" — "}
+              {lang === "en" ? (st as any).mensagem_en ?? st.mensagem : st.mensagem}
+            </div>
+          ))}
+        </div>
+      )}
+      {underdeterminedMessage && (
+        <div style={{ ...small, color: "#fca5a5", marginTop: 4 }}>
+          <b>{lang === "en" ? "Error" : "Erro"}:</b> {underdeterminedMessage}
+        </div>
+      )}
+      {overdeterminedMessage && (
+        <div style={{ ...small, color: "#fca5a5", marginTop: 4 }}>
+          <b>{lang === "en" ? "Error" : "Erro"}:</b> {overdeterminedMessage}
+        </div>
+      )}
+      {error && error !== underdeterminedMessage && error !== overdeterminedMessage && (
+        <div style={{ ...small, color: "#fca5a5", marginTop: 4 }}>
+          <b>{lang === "en" ? "Error" : "Erro"}:</b> {error}
+        </div>
+      )}
+      <hr style={{ borderColor: "var(--border)", margin: "8px 0" }} />
+
+      <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", columnGap:12, rowGap:4, alignItems:"center" }}>
+        <div>
+          <label style={{ ...label, display:"block", fontSize:12, marginBottom:2 }}>
+            {t("decimalPlaces")}
+          </label>
+          <input
+            style={{ ...input, width:80, textAlign:"center" }}
+            type="number" min={0} max={8} value={decimals}
+            onChange={(e) => {
+              const val = Number(e.target.value);
+              if (!Number.isNaN(val) && val >= 0 && val <= 8) setDecimals(val as any);
+            }}
+          />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+          <label
+            style={{
+              ...label,
+              display: "block",
+              fontSize: 12,
+              marginBottom: 2,
+              textAlign: "right",
+            }}
+          >
+            {strings[lang].timeScaleLabel}
+          </label>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: 6,
+              width: isMobile ? "min(220px, 100%)" : "260px",
+            }}
+          >
+            <input
+              style={{ ...input, flex: "1 1 auto", height: 6 }}
+              type="range"
+              min={SLIDER_MIN_POS}
+              max={SLIDER_MAX_POS}
+              step={1}
+              value={posFromTimeScale(timeScale)}
+              onChange={(e) => setTimeScale(timeScaleFromPos(Number(e.target.value)))}
+            />
+            <input
+              style={{
+                ...input,
+                width: 60,
+                textAlign: "center",
+                flex: "0 0 auto",
+              }}
+              type="number"
+              min={0.1}
+              max={10}
+              step={0.1}
+              value={timeScale}
+              onChange={(e) => setTimeScale(snapTimeScale(Number(e.target.value)))}
+            />
+          </div>
+        </div>
+      </div>
+
+      {!result ? (
+        <div style={{ opacity: 0.7 }}>{t("notCalculated")}</div>
+      ) : (
+        <>
+          {(ratio.entrada && ratio.saida && result.ratios?.[0]) && (() => {
+            const entradaLabel = labelById.get(ratio.entrada) ?? ratio.entrada;
+            const saidaLabel   = labelById.get(ratio.saida)   ?? ratio.saida;
+            const relLabel = `${entradaLabel} / ${saidaLabel}`;
+            return (
+              <div style={{ display:"grid", gap:4 }}>
+                <div style={small}><b>{t("relation")}</b> {t("input")} / {t("output")}</div>
+                <div><b>{relLabel}:</b> {fmt(result.ratios[0].value, decimals)}</div>
+              </div>
+            );
+          })()}
+
+          <hr style={{ borderColor:"var(--border)", margin:"8px 0" }}/>
+
+          <div style={{ display:"flex", flexDirection:"column", gap:12, marginTop:8 }}>
+            {(() => {
+              const grupos = new Map<number, [string, number][]>();
+              for (const [k, v] of Object.entries(result.velocities || {})) {
+                const sid = Number(k.match(/omega_[spab](\d+)/)?.[1] ?? 1);
+                if (!grupos.has(sid)) grupos.set(sid, []);
+                grupos.get(sid)!.push([k, v]);
+              }
+              function rank(id: string): [number, number] {
+                if (id.startsWith("omega_s")) return [0, 0];
+                const mp = id.match(/^omega_p(\d+)_(\d+)$/);
+                if (mp) return [1, Number(mp[2])];
+                if (id.startsWith("omega_a")) return [2, 0];
+                if (id.startsWith("omega_b")) return [3, 0];
+                return [9, 0];
+              }
+              return Array.from(grupos.entries()).sort(([a],[b])=>a-b).map(([sid, items]) => (
+                <div key={sid}>
+                  {grupos.size > 1 && (
+                    <div style={{ fontWeight:600, marginBottom:4, opacity:0.9 }}>
+                      {t("planetary")} {sid}
+                    </div>
+                  )}
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                    {items.sort(([a],[b]) => { const [ra, ia] = rank(a); const [rb, ib] = rank(b); return ra - rb || ia - ib;}).map(([k,v]) => (
+                      <div key={k} style={{ background:"var(--input-bg)", border:"1px solid var(--border)", borderRadius:6, padding:"6px 8px", minWidth:140, flex:"0 0 auto" }}>
+                        <div style={{ fontSize:12, opacity:0.8, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                          {labelById.get(k) ?? k}
+                        </div>
+                        <div style={{ fontWeight:600 }}>{fmt(v, decimals)} rpm</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ));
+            })()}
+          </div>
+        </>
+      )}
+    </>
+  );
 
 function addPlanet(stageId: number) {
   updateStage(stageId, (s) => {
@@ -1199,9 +1466,10 @@ const resultMemo = useMemo(() => {
       {/* Coluna direita */}
       <div
       id="right-col"
+      ref={rightColRef}
       style={{
         display: "grid",
-        gridTemplateRows: isMobile ? "auto 1fr" : `${Math.round(viewFrac * 100)}% 10px 1fr`,
+        gridTemplateRows: isMobile ? "auto" : `${Math.round(viewFrac * 100)}% 10px 1fr`,
         minHeight: 0,
         gap: isMobile ? 12 : 0,
         height: isMobile ? "auto" : "calc(100vh - 130px)",
@@ -1216,8 +1484,8 @@ const resultMemo = useMemo(() => {
           minHeight: 0,
           overflow: "hidden",
           position: "relative",
-          height: isMobile ? "52vh" : undefined,
-          maxHeight: isMobile ? 520 : undefined,
+          height: isMobile ? "100vh" : undefined,
+          maxHeight: isMobile ? "100vh" : undefined,
         }}
       >
         {panelExample && (
@@ -1363,190 +1631,104 @@ const resultMemo = useMemo(() => {
       )}
 
       {/* Painel de resultados (embaixo) */}
-      <div style={{ ...cardStyle, minHeight: 0, overflow: isMobile ? "visible" : "auto" }}>
-{/* Cabeçalho do painel de resultados */}
-<div
-  style={{
-    display: "flex",
-    alignItems: "flex-start",   // << Alinha pelo topo
-    justifyContent: "space-between",
-    gap: 16,
-    marginBottom: 4,
-  }}
->
-  <h3 style={{ margin: 0, flexShrink: 0 }}>{t("results")}</h3>
-
-  {/* Status de montagem por planetária, agora no mesmo nível */}
-  {Object.keys(montagem).length > 0 && (
-    <div
-      style={{
-        ...small,
-        color: hasImpossible ? "#ff6b6b" : "var(--muted-foreground)",
-        textAlign: "right",
-        marginTop: 2,
-        minWidth: 0,
-        flex: "1 1 auto",
-        overflowWrap: "anywhere",
-      }}
-    >
-      {Object.entries(montagem).map(([id, st]) => (
-        <div key={id}>
-          <b>{t("planetary")} {id}:</b>{" "}
-          {st.tipo === "aberta" ? t("stageOpen")
-           : st.tipo === "reto" ? t("armStraight")
-           : st.tipo === "curvo" ? t("armStepped")
-           : (lang === "en" ? "Carrier" : "Braço")}
-          {" — "}
-          {lang === "en" ? (st as any).mensagem_en ?? st.mensagem : st.mensagem}
+      {!isMobile && (
+        <div style={{ ...cardStyle, minHeight: 0, overflow: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+            <h3 style={{ margin: 0, flexShrink: 0 }}>{t("results")}</h3>
+          </div>
+          {renderResultsBody()}
         </div>
-      ))}
+      )}
     </div>
-  )}
-</div>
-{underdeterminedMessage && (
-  <div style={{ ...small, color: "#fca5a5", marginTop: 4 }}>
-    <b>{lang === "en" ? "Error" : "Erro"}:</b> {underdeterminedMessage}
-  </div>
-)}
-{overdeterminedMessage && (
-  <div style={{ ...small, color: "#fca5a5", marginTop: 4 }}>
-    <b>{lang === "en" ? "Error" : "Erro"}:</b> {overdeterminedMessage}
-  </div>
-)}
-{error && error !== underdeterminedMessage && error !== overdeterminedMessage && (
-  <div style={{ ...small, color: "#fca5a5", marginTop: 4 }}>
-    <b>{lang === "en" ? "Error" : "Erro"}:</b> {error}
-  </div>
-)}
-<hr style={{ borderColor: "var(--border)", margin: "8px 0" }} />
 
-
-            {/* Casas decimais + Escala do tempo */}
-            <div style={{ display:"grid", gridTemplateColumns:"auto 1fr", columnGap:12, rowGap:4, alignItems:"center" }}>
-              <div>
-                <label style={{ ...label, display:"block", fontSize:12, marginBottom:2 }}>
-                  {t("decimalPlaces")}
-                </label>
-                <input
-                  style={{ ...input, width:80, textAlign:"center" }}
-                  type="number" min={0} max={8} value={decimals}
-                  onChange={(e) => {
-                    const val = Number(e.target.value);
-                    if (!Number.isNaN(val) && val >= 0 && val <= 8) setDecimals(val as any);
-                  }}
-                />
-              </div>
-
-  {/* Escala do tempo */}
-  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-    <label
-      style={{
-        ...label,
-        display: "block",
-        fontSize: 12,
-        marginBottom: 2,
-        textAlign: "right",
-      }}
-    >
-      {strings[lang].timeScaleLabel}
-    </label>
-	    <div
-	      style={{
-	        display: "flex",
-	        alignItems: "center",
-	        justifyContent: "flex-end",
-	        gap: 6,
-	        width: isMobile ? "min(220px, 100%)" : "260px",
-	      }}
-	    >
-      <input
-        style={{ ...input, flex: "1 1 auto", height: 6 }}
-        type="range"
-        min={SLIDER_MIN_POS}
-        max={SLIDER_MAX_POS}
-        step={1}
-        value={posFromTimeScale(timeScale)}
-        onChange={(e) => setTimeScale(timeScaleFromPos(Number(e.target.value)))}
-      />
-      <input
-        style={{
-          ...input,
-          width: 60,
-          textAlign: "center",
-          flex: "0 0 auto",
+    {/* Mobile: painel de resultados em formato "drawer" (igual ao da coluna esquerda) */}
+    {isMobile && !resultsCollapsed && (
+      <div
+        onClick={() => {
+          setResultsCollapsed(true);
+          setResultsDrawerYClamped(resultsDrawerClosedY);
         }}
-        type="number"
-        min={0.1}
-        max={10}
-        step={0.1}
-        value={timeScale}
-        onChange={(e) => setTimeScale(snapTimeScale(Number(e.target.value)))}
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          top: 0,
+          zIndex: 70,
+          background: "rgba(0,0,0,0.35)",
+          opacity: 1,
+          pointerEvents: "auto",
+          transition: "opacity 180ms ease",
+        }}
       />
-    </div>
-  </div>
+    )}
 
-            </div>
+    {isMobile && (
+      <div
+        style={{
+          position: "fixed",
+          left: mobileResultsInset.left,
+          right: mobileResultsInset.right,
+          bottom: 0,
+          height: resultsDrawerHeight,
+          transform: `translateY(${resultsDrawerY}px)`,
+          transition: resultsDrawerDragging ? "none" : "transform 180ms ease",
+          zIndex: 80,
+          overflow: "visible",
+          pointerEvents: "auto",
+        }}
+      >
+        <div
+          style={{
+            ...cardStyle,
+            padding: 0,
+            height: "100%",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 -10px 30px rgba(0,0,0,0.45)",
+          }}
+        >
+          <div style={{ padding: "12px 14px 14px 14px", overflow: "auto", minHeight: 0, flex: "1 1 auto" }}>
+            {renderResultsBody()}
+          </div>
+        </div>
 
-
-        {!result ? (
-          <div style={{ opacity: 0.7 }}>{t("notCalculated")}</div>
-        ) : (
-          <>
-            {(ratio.entrada && ratio.saida && result.ratios?.[0]) && (() => {
-              const entradaLabel = labelById.get(ratio.entrada) ?? ratio.entrada;
-              const saidaLabel   = labelById.get(ratio.saida)   ?? ratio.saida;
-              const relLabel = `${entradaLabel} / ${saidaLabel}`;
-              return (
-                <div style={{ display:"grid", gap:4 }}>
-                  <div style={small}><b>{t("relation")}</b> {t("input")} / {t("output")}</div>
-                  <div><b>{relLabel}:</b> {fmt(result.ratios[0].value, decimals)}</div>
-                </div>
-              );
-            })()}
-
-            <hr style={{ borderColor:"var(--border)", margin:"8px 0" }}/>
-
-            <div style={{ display:"flex", flexDirection:"column", gap:12, marginTop:8 }}>
-              {(() => {
-                const grupos = new Map<number, [string, number][]>();
-                for (const [k, v] of Object.entries(result.velocities || {})) {
-                  const sid = Number(k.match(/omega_[spab](\d+)/)?.[1] ?? 1);
-                  if (!grupos.has(sid)) grupos.set(sid, []);
-                  grupos.get(sid)!.push([k, v]);
-                }
-                function rank(id: string): [number, number] {
-                  if (id.startsWith("omega_s")) return [0, 0];
-                  const mp = id.match(/^omega_p(\d+)_(\d+)$/);
-                  if (mp) return [1, Number(mp[2])];
-                  if (id.startsWith("omega_a")) return [2, 0];
-                  if (id.startsWith("omega_b")) return [3, 0];
-                  return [9, 0];
-                }
-                return Array.from(grupos.entries()).sort(([a],[b])=>a-b).map(([sid, items]) => (
-                  <div key={sid}>
-                    {grupos.size > 1 && (
-                      <div style={{ fontWeight:600, marginBottom:4, opacity:0.9 }}>
-                        {t("planetary")} {sid}
-                      </div>
-                    )}
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                      {items.sort(([a],[b]) => { const [ra, ia] = rank(a); const [rb, ib] = rank(b); return ra - rb || ia - ib;}).map(([k,v]) => (
-                        <div key={k} style={{ background:"var(--input-bg)", border:"1px solid var(--border)", borderRadius:6, padding:"6px 8px", minWidth:140, flex:"0 0 auto" }}>
-                          <div style={{ fontSize:12, opacity:0.8, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                            {labelById.get(k) ?? k}
-                          </div>
-                          <div style={{ fontWeight:600 }}>{fmt(v, decimals)} rpm</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          </>
-        )}
+        <div
+          onPointerDown={startResultsDrag}
+          onPointerMove={moveResultsDrag}
+          onPointerUp={endResultsDrag}
+          onPointerCancel={endResultsDrag}
+          onClick={() => {
+            const nextCollapsed = !resultsCollapsedRef.current;
+            setResultsCollapsed(nextCollapsed);
+            setResultsDrawerYClamped(nextCollapsed ? resultsDrawerClosedY : 0);
+          }}
+          title={resultsCollapsed ? "Arraste para mostrar" : "Arraste para esconder"}
+          style={{
+            position: "absolute",
+            top: -resultsTabHeight,
+            left: "50%",
+            width: resultsTabWidth,
+            height: resultsTabHeight,
+            transform: "translateX(-50%)",
+            borderRadius: "10px 10px 0 0",
+            border: "1px solid var(--border)",
+            background: "var(--panel-bg)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "grab",
+            userSelect: "none",
+            touchAction: "none",
+            color: "var(--text)",
+            fontWeight: 700,
+          }}
+        >
+          ≡
+        </div>
       </div>
-    </div>
+    )}
   </div>
 );
 
