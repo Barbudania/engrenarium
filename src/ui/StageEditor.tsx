@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Model, Element, Mesh, Constraint } from "../math/types";
 import { solveGearSystem } from "../math/solver";
 import { validarMontagem, type MontagemStatus } from "../math/topology";
@@ -103,6 +103,7 @@ export function StageEditor({
   const t = (key: StringKey) => strings[lang][key];
   const [timeScale, setTimeScale] = useState(1.0);
   const [stages, setStages] = useState<UIStage[]>([{ id: 1, solarZ: 40, planetsZ: [20], annulusZ: 80, planetCopies: 3 }]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // ==== defaults a partir do primeiro estágio ====
   const firstId = 1;
@@ -146,6 +147,8 @@ export function StageEditor({
   const skipExampleClearRef = useRef(false);
   const SLIDER_MIN_POS = -9;
   const SLIDER_MAX_POS = 9;
+  const exampleTitleRef = useRef<HTMLDivElement | null>(null);
+  const [examplePanelWidth, setExamplePanelWidth] = useState<number | null>(null);
 
   // --- Mobile: painel esquerdo em formato "drawer" (arrastar para abrir/fechar)
   const [viewportWidth, setViewportWidth] = useState(() => (typeof window === "undefined" ? 0 : window.innerWidth));
@@ -174,6 +177,26 @@ export function StageEditor({
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!panelExample) {
+      setExamplePanelWidth(null);
+      return;
+    }
+
+    const measure = () => {
+      const titleEl = exampleTitleRef.current;
+      if (!titleEl) return;
+      const paddingX = 20; // container padding (10px each side)
+      const desired = Math.ceil(titleEl.getBoundingClientRect().width + paddingX);
+      const maxAllowed = typeof window === "undefined" ? desired : Math.max(0, window.innerWidth - 20);
+      setExamplePanelWidth(Math.min(desired, maxAllowed));
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [panelExample, lang]);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -1088,14 +1111,17 @@ const resultMemo = useMemo(() => {
   );
 
   return (
-    <div style={layoutStyle}>
+    <div ref={containerRef} style={layoutStyle}>
       {isMobile && (
         <>
           <div
             onClick={() => setMobileLeftOpen(false)}
             style={{
               position: "fixed",
-              inset: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              top: 0,
               zIndex: 90,
               background: "rgba(0,0,0,0.35)",
               opacity: mobileLeftOpen ? 1 : 0,
@@ -1111,6 +1137,7 @@ const resultMemo = useMemo(() => {
               bottom: 0,
               left: 0,
               width: drawerWidth,
+              height: "100dvh",
               transform: `translateX(${drawerX}px)`,
               transition: drawerDragging ? "none" : "transform 180ms ease",
               zIndex: 100,
@@ -1152,6 +1179,7 @@ const resultMemo = useMemo(() => {
             <div
               style={{
                 height: "100%",
+                maxHeight: "100dvh",
                 overflow: "auto",
                 paddingTop: 10,
                 paddingBottom: 10,
@@ -1208,12 +1236,23 @@ const resultMemo = useMemo(() => {
               gap: 6,
               boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
               minWidth: 0,
-              width: isMobile ? "auto" : "max-content",
-              maxWidth: isMobile ? "calc(100% - 20px)" : undefined,
+              width: examplePanelWidth != null ? `${examplePanelWidth}px` : "fit-content",
+              maxWidth: "calc(100% - 20px)",
               alignItems: "stretch",
             }}
           >
-            <div style={{ fontWeight: 700, marginBottom: 6, lineHeight: 1.25, whiteSpace: "pre-line", textAlign: "right" }}>
+            <div
+              ref={exampleTitleRef}
+              style={{
+                fontWeight: 700,
+                marginBottom: 6,
+                lineHeight: 1.25,
+                whiteSpace: "pre",
+                textAlign: "right",
+                display: "inline-block",
+                alignSelf: "flex-end",
+              }}
+            >
               {panelExample === "EX4"
                 ? strings[lang].ex4Title
                 : panelExample === "EX2"

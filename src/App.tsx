@@ -76,7 +76,7 @@ export default function App() {
     background: transparent;
     color: var(--text);
     cursor: pointer;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1;
   }
   .toggle button.active {
@@ -87,7 +87,7 @@ export default function App() {
     :root { font-size: 14px; }
     .wrap { padding: 8px 10px; }
     .toggle { padding: 1px; }
-    .toggle button { font-size: 14px; padding: 5px 8px; }
+    .toggle button { font-size: 13px; padding: 5px 8px; }
   }
 `}</style>
 
@@ -98,7 +98,8 @@ export default function App() {
             alignItems: "center",
             gap: isMobile ? 8 : 12,
             marginBottom: 8,
-            flexWrap: isMobile ? "wrap" : "nowrap",
+            flexWrap: "nowrap",
+            overflowX: isMobile ? "auto" : "visible",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -123,10 +124,10 @@ export default function App() {
             background: "var(--btn-bg)",
             color: "var(--text)",
             borderRadius: 6,
-            padding: isMobile ? "6px 10px" : "6px 12px",
+            padding: isMobile ? "6px 10px" : "6px 11px",
             cursor: "pointer",
             fontWeight: 600,
-            fontSize: isMobile ? 13 : 16,
+            fontSize: isMobile ? 13 : 14,
           }}
           onClick={() => {
             setExampleToLoad(null);
@@ -137,71 +138,82 @@ export default function App() {
           {strings[lang].newPlanetary}
         </button>
 
-          {/* Painel de exemplos */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              padding: "6px 10px",
-              border: "1px solid var(--btn-border)",
-              borderRadius: 10,
-              background: "var(--panel-bg)",
-              marginLeft: isMobile ? 0 : "auto",
-              width: isMobile ? "100%" : "auto",
-              flexWrap: isMobile ? "wrap" : "nowrap",
+              gap: isMobile ? 8 : 10,
+              marginLeft: "auto",
+              flexWrap: "nowrap",
+              overflowX: isMobile ? "auto" : "visible",
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 600 }}>{strings[lang].examples}</div>
-            {(["EX1", "EX2", "EX3", "EX4"] as const).map((id) => (
-              <button
-                key={id}
-                style={{
-                  border: "1px solid var(--btn-border)",
-                  background: lastLoadedExample === id ? "#60a5fa30" : "var(--btn-bg)",
-                  color: "var(--text)",
-                  borderRadius: 6,
-                  padding: isMobile ? "5px 8px" : "6px 10px",
-                  cursor: "pointer",
-                  fontWeight: lastLoadedExample === id ? 700 : 500,
-                  fontSize: isMobile ? 12 : 16,
-                }}
-                onClick={() => setExampleToLoad(id)}
-              >
-                {strings[lang][id.toLowerCase() as "ex1" | "ex2" | "ex3" | "ex4"]}
-              </button>
-            ))}
-          </div>
+            {/* Painel de exemplos */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "6px 10px",
+                border: "1px solid var(--btn-border)",
+                borderRadius: 10,
+                background: "var(--panel-bg)",
+                width: "auto",
+                flexWrap: "nowrap",
+                whiteSpace: "nowrap",
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{strings[lang].examples}</div>
+              {(["EX1", "EX2", "EX3", "EX4"] as const).map((id) => (
+                <button
+                  key={id}
+                  style={{
+                    border: "1px solid var(--btn-border)",
+                    background: lastLoadedExample === id ? "#60a5fa30" : "var(--btn-bg)",
+                    color: "var(--text)",
+                    borderRadius: 6,
+                    padding: isMobile ? "5px 8px" : "6px 9px",
+                    cursor: "pointer",
+                    fontWeight: lastLoadedExample === id ? 700 : 500,
+                    fontSize: isMobile ? 12 : 14,
+                  }}
+                  onClick={() => setExampleToLoad(id)}
+                >
+                  {strings[lang][id.toLowerCase() as "ex1" | "ex2" | "ex3" | "ex4"]}
+                </button>
+              ))}
+            </div>
 
-          {/* seletor de idioma */}
-          <div className="toggle" aria-label={strings[lang].language} title={strings[lang].language}>
-            <button className={lang === "pt" ? "active" : ""} onClick={() => switchLang("pt")}>
-              {strings[lang].langPT}
-            </button>
-            <button className={lang === "en" ? "active" : ""} onClick={() => switchLang("en")}>
-              {strings[lang].langEN}
-            </button>
-          </div>
+            {/* seletor de idioma */}
+            <div className="toggle" aria-label={strings[lang].language} title={strings[lang].language}>
+              <button className={lang === "pt" ? "active" : ""} onClick={() => switchLang("pt")}>
+                {strings[lang].langPT}
+              </button>
+              <button className={lang === "en" ? "active" : ""} onClick={() => switchLang("en")}>
+                {strings[lang].langEN}
+              </button>
+            </div>
 
-          {/* seletor de tema */}
-          <div>
-            <div className="toggle">
-              <button
-                className={theme === "dark" ? "active" : ""}
-                onClick={() => setTheme("dark")}
-                title="Tema escuro"
-                aria-label="Tema escuro"
-              >
-                🌙
-              </button>
-              <button
-                className={theme === "light" ? "active" : ""}
-                onClick={() => setTheme("light")}
-                title="Tema claro"
-                aria-label="Tema claro"
-              >
-                ☀️
-              </button>
+            {/* seletor de tema */}
+            <div>
+              <div className="toggle">
+                <button
+                  className={theme === "dark" ? "active" : ""}
+                  onClick={() => setTheme("dark")}
+                  title="Tema escuro"
+                  aria-label="Tema escuro"
+                >
+                  🌙
+                </button>
+                <button
+                  className={theme === "light" ? "active" : ""}
+                  onClick={() => setTheme("light")}
+                  title="Tema claro"
+                  aria-label="Tema claro"
+                >
+                  ☀️
+                </button>
+              </div>
             </div>
           </div>
         </div>
